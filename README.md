@@ -1,1 +1,1 @@
-# Coffe-Copy
+# Welcome to Coffe & Copy :coffee:!
