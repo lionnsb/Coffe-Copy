@@ -7,16 +7,26 @@ import os
 
 # Zwischenablage Speicher für Text und Dateipfade
 clipboard_storage = {}
+
+# Benutzerdefinierte Tastenkombinationen für Kopieren und Einfügen
+copy_key = 'C'
+paste_key = 'M'
+
+custom_key = 'V'  # Die benutzerdefinierte Taste (Beispiel: 'V')
+
+copy_key_entry = None
+paste_key_entry = None
+
 def update_clipboard_history():
     clipboard_listbox.delete(0, tk.END)
     for key, item in clipboard_storage.items():
-        clipboard_listbox.insert(tk.END, f"{key}: {item['type']}")
+        clipboard_listbox.insert(tk.END, key)
 
 def show_details(event=None):
     selection = clipboard_listbox.curselection()
     if selection:
         index = selection[0]
-        key = clipboard_listbox.get(index).split(":")[0]  # Trenne den Key vom Typ
+        key = clipboard_listbox.get(index)
         item = clipboard_storage.get(key, {'type': 'N/A', 'content': 'Information nicht verfügbar'})
         
         detail_text.config(state=tk.NORMAL)
@@ -24,27 +34,19 @@ def show_details(event=None):
         detail_text.insert(tk.END, f"Key: {key}\nType: {item['type']}\nContent: {item['content']}")
         detail_text.config(state=tk.DISABLED)
 
-def show_details_directly(key, text):
-    # Stellen Sie sicher, dass die Informationen verfügbar sind
-    item = clipboard_storage.get(key, {'type': 'N/A', 'content': 'Information nicht verfügbar'})
-    detail_text.config(state=tk.NORMAL)
-    detail_text.delete('1.0', tk.END)
-    # Hier können Sie entscheiden, welche Informationen angezeigt werden sollen
-    detail_text.insert(tk.END, f"Key: {key}\nType: {item['type']}\nContent: {item['content']}")
-    detail_text.config(state=tk.DISABLED)
 def copy_to_clipboard(key):
     text = pyperclip.paste()
     if text:
         clipboard_storage[key] = {'type': 'file' if os.path.isfile(text) else 'text', 'content': text}
         status_label.config(text=f"{'Dateipfad' if os.path.isfile(text) else 'Text'} unter {key} gespeichert: {text}")
         update_clipboard_history()
-        # Rufen Sie die neue Funktion mit den aktuellen Informationen auf
-        show_details_directly(key, text)
+        show_details(key)
+        # Hier wird die benutzerdefinierte Taste zusammen mit der Tastenkombination verwendet
+        if custom_key:
+            keyboard.press_and_release(f'ctrl+c+{paste_key}+{custom_key}')
     else:
         status_label.config(text="Die Zwischenablage ist leer.")
 
-
-# Funktion zum Einfügen von Inhalten aus der Zwischenablage
 def paste_from_clipboard(key):
     if key in clipboard_storage:
         item = clipboard_storage[key]
@@ -63,43 +65,81 @@ def paste_from_clipboard(key):
                 status_label.config(text=f"Datei von {item['content']} nach {destination_path} kopiert.")
             except Exception as e:
                 status_label.config(text=f"Fehler beim Kopieren der Datei: {e}")
-    else:
-        status_label.config(text="Kein Inhalt unter dem Key gefunden.")
 
-# Funktion zum Löschen von Inhalten aus der Zwischenablage
 def delete_from_clipboard(key):
     if key in clipboard_storage:
         del clipboard_storage[key]
         status_label.config(text=f"Inhalt unter {key} gelöscht.")
         update_clipboard_history()
-    else:
-        status_label.config(text="Kein Inhalt unter dem Key zu löschen gefunden.")
 
-def delete_item_on_double_click(event=None):
+def delete_item(event):
     selection = clipboard_listbox.curselection()
     if selection:
         index = selection[0]
-        key = clipboard_listbox.get(index).split(":")[0]  # Extrahiere den Key
-        delete_from_clipboard(key)  # Lösche das Element
-        update_clipboard_history()  # Aktualisiere die Liste
-        detail_text.config(state=tk.NORMAL)  # Bereite das detail_text Widget vor
-        detail_text.delete('1.0', tk.END)  # Lösche den aktuellen Inhalt
-        detail_text.insert(tk.END, f"Eintrag {key} wurde gelöscht.")  # Zeige Nachricht
-        detail_text.config(state=tk.DISABLED)  # Verhindere Bearbeitung
-
-
-
-def delete_from_clipboard(key):
-    if key in clipboard_storage:
-        del clipboard_storage[key]
-        status_label.config(text=f"Inhalt unter {key} gelöscht.")
-        update_clipboard_history()
-        detail_text.config(state=tk.NORMAL)
-        detail_text.delete('1.0', tk.END)
-        detail_text.config(state=tk.DISABLED)
+        key = clipboard_listbox.get(index)
+        if key in clipboard_storage:
+            del clipboard_storage[key]
+            status_label.config(text=f"Inhalt unter {key} gelöscht.")
+            update_clipboard_history()
+            detail_text.config(state=tk.NORMAL)
+            detail_text.delete('1.0', tk.END)
+            detail_text.config(state=tk.DISABLED)
+        else:
+            status_label.config(text="Kein Inhalt unter dem Key zu löschen gefunden.")
     else:
-        status_label.config(text="Kein Inhalt unter dem Key zu löschen gefunden.")
+        status_label.config(text="Bitte wählen Sie ein Element zum Löschen aus.")
 
+def show_settings():
+    global copy_key, paste_key, custom_key, copy_key_entry, paste_key_entry
+
+    settings_window = tk.Toplevel(root)
+    settings_window.title("Einstellungen")
+    
+    def set_copy_key(event):
+        global copy_key
+        copy_key = event.name
+        copy_key_entry.delete(0, tk.END)
+        copy_key_entry.insert(0, f"CTRL + {copy_key}")
+
+    def set_paste_key(event):
+        global paste_key
+        paste_key = event.name
+        paste_key_entry.delete(0, tk.END)
+        paste_key_entry.insert(0, f"CTRL + M + {paste_key}")
+
+    def set_custom_key(event):
+        global custom_key
+        custom_key = event.name
+        custom_key_entry.delete(0, tk.END)
+        custom_key_entry.insert(0, custom_key)
+
+    copy_label = ttk.Label(settings_window, text="Tastenkombination für Kopieren:")
+    copy_label.pack(padx=10, pady=5)
+    copy_key_entry = ttk.Entry(settings_window)
+    copy_key_entry.insert(0, f"CTRL + {copy_key}")
+    copy_key_entry.pack(padx=10, pady=5)
+
+    paste_label = ttk.Label(settings_window, text="Tastenkombination für Einfügen:")
+    paste_label.pack(padx=10, pady=5)
+    paste_key_entry = ttk.Entry(settings_window)
+    paste_key_entry.insert(0, f"CTRL + M + {paste_key}")
+    paste_key_entry.pack(padx=10, pady=5)
+
+    custom_label = ttk.Label(settings_window, text="Benutzerdefinierte Taste für Einfügen:")
+    custom_label.pack(padx=10, pady=5)
+    custom_key_entry = ttk.Entry(settings_window)
+    custom_key_entry.insert(0, custom_key)
+    custom_key_entry.pack(padx=10, pady=5)
+
+    copy_key_entry.bind("<Key>", set_copy_key)
+    paste_key_entry.bind("<Key>", set_paste_key)
+    custom_key_entry.bind("<Key>", set_custom_key)
+
+    def save_shortcuts():
+        settings_window.destroy()
+
+    save_button = ttk.Button(settings_window, text="Speichern", command=save_shortcuts)
+    save_button.pack(padx=10, pady=10)
 
 # Erstelle das Hauptfenster
 root = tk.Tk()
@@ -129,8 +169,24 @@ status_label.pack(pady=10)
 detail_text = tk.Text(right_frame, height=15, wrap='word', state='disabled', background='#f0f0f0')
 detail_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+# Erstellen des Kontextmenüs
+context_menu = tk.Menu(root, tearoff=0)
+context_menu.add_command(label="Löschen", command=lambda: delete_item(None))
+
+# Binden des Kontextmenüs an die Listbox
+clipboard_listbox.bind("<Button-3>", lambda e: context_menu.post(e.x_root, e.y_root))
+
 clipboard_listbox.bind('<<ListboxSelect>>', show_details)
-clipboard_listbox.bind('<Double-1>', delete_item_on_double_click)
+clipboard_listbox.bind('<<ListboxSelect>>', show_details)
+
+# Menüleiste hinzufügen
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+# Einstellungsmenü hinzufügen
+settings_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="Einstellungen", menu=settings_menu)
+settings_menu.add_command(label="Einstellungen öffnen", command=show_settings)
 
 # Hotkeys beibehalten
 valid_keys = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
