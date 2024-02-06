@@ -75,6 +75,31 @@ def delete_from_clipboard(key):
     else:
         status_label.config(text="Kein Inhalt unter dem Key zu löschen gefunden.")
 
+def delete_item_on_double_click(event=None):
+    selection = clipboard_listbox.curselection()
+    if selection:
+        index = selection[0]
+        key = clipboard_listbox.get(index).split(":")[0]  # Extrahiere den Key
+        delete_from_clipboard(key)  # Lösche das Element
+        update_clipboard_history()  # Aktualisiere die Liste
+        detail_text.config(state=tk.NORMAL)  # Bereite das detail_text Widget vor
+        detail_text.delete('1.0', tk.END)  # Lösche den aktuellen Inhalt
+        detail_text.insert(tk.END, f"Eintrag {key} wurde gelöscht.")  # Zeige Nachricht
+        detail_text.config(state=tk.DISABLED)  # Verhindere Bearbeitung
+
+
+
+def delete_from_clipboard(key):
+    if key in clipboard_storage:
+        del clipboard_storage[key]
+        status_label.config(text=f"Inhalt unter {key} gelöscht.")
+        update_clipboard_history()
+        detail_text.config(state=tk.NORMAL)
+        detail_text.delete('1.0', tk.END)
+        detail_text.config(state=tk.DISABLED)
+    else:
+        status_label.config(text="Kein Inhalt unter dem Key zu löschen gefunden.")
+
 
 # Erstelle das Hauptfenster
 root = tk.Tk()
@@ -105,6 +130,8 @@ detail_text = tk.Text(right_frame, height=15, wrap='word', state='disabled', bac
 detail_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
 clipboard_listbox.bind('<<ListboxSelect>>', show_details)
+clipboard_listbox.bind('<Double-1>', delete_item_on_double_click)
+
 # Hotkeys beibehalten
 valid_keys = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 for key in valid_keys:
