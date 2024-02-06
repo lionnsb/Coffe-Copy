@@ -4,6 +4,7 @@ import keyboard
 import pyperclip
 import shutil
 import os
+import datetime 
 from ttkthemes import ThemedStyle  # Import des ThemedStyle aus ttkthemes
 
 clipboard_storage = {}
@@ -24,22 +25,31 @@ def show_details(event=None):
         index = selection[0]
         key = clipboard_listbox.get(index)
         item = clipboard_storage.get(key, {'type': 'N/A', 'content': 'Information not available'})
+        # Erweiterung um Uhrzeit, Datum und Quelle
+        timestamp = item.get('timestamp', 'No timestamp available')
+        source = item.get('source', 'No source available')
         
         detail_text.config(state=tk.NORMAL)
         detail_text.delete('1.0', tk.END)
-        detail_text.insert(tk.END, f"Key: {key}\nType: {item['type']}\nContent: {item['content']}")
+        detail_text.insert(tk.END, f"Key: {key}\nType: {item['type']}\nContent: {item['content']}\nTimestamp: {timestamp}\nSource: {source}")
         detail_text.config(state=tk.DISABLED)
 
 def copy_to_clipboard(key):
     text = pyperclip.paste()
+    timestamp = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
+    source = 'Direct input' if not os.path.exists(text) else text
     if text:
-        clipboard_storage[key] = {'type': 'file' if os.path.isfile(text) else 'text', 'content': text}
+        clipboard_storage[key] = {
+            'type': 'file' if os.path.isfile(text) else 'text',
+            'content': text,
+            'timestamp': timestamp,  # Speichern des Zeitstempels
+            'source': source  # Speichern der Quelle
+        }
         update_clipboard_history()
-        show_details(key)
-        if custom_key:
-            keyboard.press_and_release(f'ctrl+c+{paste_key}+{custom_key}')
-    else:
-        status_label.config(text="Clipboard is empty.")
+        # Korrigierte Zeile, um den neu hinzugefügten Eintrag sofort anzuzeigen
+        clipboard_listbox.selection_set("end")
+        clipboard_listbox.see("end")  # Stellt sicher, dass die Listbox zum letzten Eintrag scrollt
+        show_details()
 
 def paste_from_clipboard(key):
     if key in clipboard_storage:
