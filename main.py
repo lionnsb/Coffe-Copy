@@ -8,25 +8,70 @@ import datetime
 import threading
 import win32clipboard
 import win32con
+import time
 
 clipboard_storage = {}
 destination_path = None
 destination_window = None
+script_dir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(script_dir)
+
+def check_if_clipboard_empty():
+    # Lösche die vorherige Nachricht, wenn vorhanden, und zeige eine neue an, falls leer.
+    for widget in history_frame.winfo_children():
+        widget.destroy()  # Entferne alle vorhandenen Widgets
+    if not clipboard_storage:
+        show_empty_clipboard_message()
+    else:
+        hide_empty_clipboard_message()  # Verstecke den Platzhalter, wenn die Zwischenablage nicht leer ist
+
+placeholder_frame = None  # Neuer Frame für den Platzhaltertext
+
+def show_empty_clipboard_message():
+    global placeholder_frame
+    # Lösche den vorhandenen Platzhalter, falls vorhanden
+    if placeholder_frame is not None:
+        placeholder_frame.destroy()
+    
+    # Neuer Frame für den Platzhalter
+    placeholder_frame = ttk.Frame(history_frame, padding=10)  
+    placeholder_frame.pack(expand=True, fill=tk.BOTH)  
+
+    # Text für den Platzhalter ohne Bild
+    empty_message_label = ttk.Label(placeholder_frame, text="Deine Zwischenablage ist leer\n"
+                                                            "Lass uns gemeinsam Geschichte schreiben, "
+                                                            "indem du mehrere Elemente kopierst.",
+                                    background="white", wraplength=300)
+    empty_message_label.pack(expand=True, pady=10)  # Zentriere den Text
+
+def hide_empty_clipboard_message():
+    global placeholder_frame
+    if placeholder_frame is not None:
+        placeholder_frame.pack_forget()
 
 def update_clipboard_history():
-    clipboard_listbox.delete(0, tk.END)
-    for key, item in clipboard_storage.items():
-        clipboard_listbox.insert(tk.END, f"{key}: {item['content']}")
+    # Lösche alle vorherigen Cards und prüfe, ob die Zwischenablage leer ist
+    check_if_clipboard_empty()
 
-def update_detail_text(key):
-    if key in clipboard_storage:
-        item = clipboard_storage[key]
-        detail_text.config(state='normal')
-        detail_text.delete('1.0', tk.END)
-        detail_text.insert(tk.END, f"Timestamp: {item['timestamp']}\nType: {item['type']}\nContent:\n")
-        for content in item['content']:
-            detail_text.insert(tk.END, f"- {content}\n")
-        detail_text.config(state='disabled')
+    # Erstelle für jedes Item in clipboard_storage eine Card
+    for key, item in clipboard_storage.items():
+        create_clipboard_card(key, item)
+
+    # Aktualisiere die Scrollregion des Canvas
+    update_scrollregion()
+
+def create_clipboard_card(key, item):
+    card_frame = ttk.Frame(history_frame)
+    card_frame.pack(fill=tk.X, padx=5, pady=5)
+
+    card_label = ttk.Label(card_frame, text=f"{key}: {item['content']}", background="white", wraplength=300)  # Hier die wraplength anpassen
+    card_label.pack(side=tk.LEFT, padx=5, pady=5)
+
+    card_menu_button = ttk.Menubutton(card_frame, text="...", direction="above")
+    card_menu = tk.Menu(card_menu_button, tearoff=0)
+    card_menu.add_command(label="Delete", command=lambda k=key: delete_from_clipboard(k))
+    card_menu_button['menu'] = card_menu
+    card_menu_button.pack(side=tk.RIGHT, padx=5, pady=5)
 
 def copy_to_clipboard(key):
     file_paths = get_file_paths_from_clipboard()
@@ -42,13 +87,12 @@ def copy_to_clipboard(key):
             clipboard_storage[key]['source'].append(file_path)
         if os.path.isfile(file_paths[0]) and key.startswith('v'):  # Nur öffnen, wenn STRG + V + Key gedrückt wurde und der Key einer Datei entspricht
             ask_for_destination_path(clipboard_storage[key])
-        update_clipboard_history()  # Liste aktualisieren
+        update_clipboard_history()  # Cards aktualisieren
     else:
         clipboard_content = pyperclip.paste()
         print("Keine Datei oder Ordner gefunden, speichere als Text.")
         clipboard_storage[key] = {'type': 'text', 'content': [clipboard_content], 'timestamp': timestamp}
         update_clipboard_history()
-        update_detail_text(key)  # Hier die Detailansicht aktualisieren
 
 def paste_from_clipboard(key):
     global destination_path
@@ -61,7 +105,7 @@ def paste_from_clipboard(key):
             else:
                 pyperclip.copy(items['content'][0])
                 keyboard.send('ctrl+v')
-                update_clipboard_history()  # Aktualisierung der Historienliste
+                update_clipboard_history()  # Aktualisierung der Historien-Cards
         else:
             content = items['content'][0]
             if os.path.isfile(content):  # Überprüfen, ob der Inhalt eine Datei ist
@@ -69,7 +113,7 @@ def paste_from_clipboard(key):
             else:
                 pyperclip.copy(content)
                 keyboard.send('ctrl+v')
-                update_clipboard_history()  # Aktualisierung der Historienliste
+                update_clipboard_history()  # Aktualisierung der Historien-Cards
     else:
         print(f"Kein Item gefunden für key: {key}")
 
@@ -156,58 +200,71 @@ def show_loading_indicator():
     loading_progressbar['value'] = 0
 
 def get_file_paths_from_clipboard():
-    win32clipboard.OpenClipboard()
-    paths = []
-    if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
-        data = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
-        for i in range(len(data)):
-            paths.append(data[i])
-    win32clipboard.CloseClipboard()
-    return paths
+    max_attempts = 5
+    for _ in range(max_attempts):
+        try:
+            win32clipboard.OpenClipboard()
+            paths = []
+            if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
+                data = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
+                for i in range(len(data)):
+                    paths.append(data[i])
+            win32clipboard.CloseClipboard()
+            return paths
+        except Exception as e:
+            print(f"Error accessing clipboard: {e}. Retrying...")
+            time.sleep(1)
+    raise Exception("Failed to access clipboard after multiple attempts")
 
-def delete_from_clipboard():
-    selected_index = clipboard_listbox.curselection()
-    if selected_index:
-        selected_key = clipboard_listbox.get(selected_index)
-        key = selected_key.split(":")[0].strip()
-        del clipboard_storage[key]
-        clipboard_listbox.delete(selected_index)
+def delete_from_clipboard(key):
+    del clipboard_storage[key]
+    update_clipboard_history()
 
+def update_scrollregion(event=None):
+    history_canvas.configure(scrollregion=history_canvas.bbox("all"))
+
+def on_mousewheel(event):
+    history_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
 root = tk.Tk()
 root.title("Clipboard Manager")
 
+# Setze die Größe der Anwendung auf 395x292 Pixel und deaktiviere das Ändern der Größe
+root.geometry("395x292")
+root.resizable(False, False)
+
 # Rahmen und Hintergrundfarben entsprechend dem ursprünglichen Design des Clipboard Managers
 root.configure(bg="#f0f0f0")
 
+# Erstelle ein Frame, um das Canvas und die Scrollbaacar zu umgeben
 main_frame = ttk.Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-history_frame = ttk.Frame(main_frame)
-history_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+# Erstelle ein Canvas Widget, um die history_frame zu umgeben
+history_canvas = tk.Canvas(main_frame)
+history_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-# Änderungen an der Liste, um dem ursprünglichen Design des Clipboard Managers zu entsprechen
-listbox_scrollbar = ttk.Scrollbar(history_frame, orient=tk.VERTICAL)
-clipboard_listbox = tk.Listbox(history_frame, yscrollcommand=listbox_scrollbar.set, bg="white", borderwidth=0)
-listbox_scrollbar.config(command=clipboard_listbox.yview)
-listbox_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-clipboard_listbox.pack(fill=tk.BOTH, expand=True)
+# Füge eine Scrollbar hinzu und verbinde sie mit dem Canvas
+scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=history_canvas.yview)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+history_canvas.configure(yscrollcommand=scrollbar.set)
 
-status_detail_frame = ttk.Frame(main_frame)
-status_detail_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+# Erstelle ein Frame im Canvas, um die Karten anzuzeigen
+history_frame = ttk.Frame(history_canvas)
+history_frame.pack(fill=tk.BOTH, expand=True)  # Ändern Sie hier 'pack' zu 'grid', wenn das Layout nicht wie erwartet ist
 
-# Änderungen am Textfeld, um dem ursprünglichen Design des Clipboard Managers zu entsprechen
-detail_text = tk.Text(status_detail_frame, height=10, wrap='word', state='disabled', background='white', borderwidth=0)
-detail_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+# Erstelle eine Canvas-Window-Konfiguration
+history_canvas.create_window((0, 0), window=history_frame, anchor="nw")
+
+# Binden des Scrollregion-Updates an die Änderungen in history_frame
+history_frame.bind("<Configure>", update_scrollregion)
+
+# Mausrad-Scrollen hinzufügen
+history_canvas.bind_all("<MouseWheel>", on_mousewheel)
 
 context_menu = tk.Menu(root, tearoff=0)
-context_menu.add_command(label="Delete", command=delete_from_clipboard)
-
-clipboard_listbox.bind("<Button-3>", lambda e: context_menu.post(e.x_root, e.y_root))
-clipboard_listbox.bind("<<ListboxSelect>>", lambda e: update_detail_text(clipboard_listbox.get(tk.ACTIVE)))
-
-menu_bar = tk.Menu(root)
-root.config(menu=menu_bar)
+# Menu zur GUI hinzufügen
+root.config(menu=context_menu)
 
 valid_keys = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 for key in valid_keys:
