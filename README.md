@@ -9,10 +9,10 @@
 
 "Coffee & Copy" ist eine fortschrittliche Zwischenablage-Verwaltungsanwendung für Windows, die darauf abzielt, die Produktivität durch effizienteres Kopieren und Einfügen von Inhalten zu steigern. Mit dieser Anwendung können Benutzer Inhalte nicht nur kopieren und einfügen, sondern auch speichern, organisieren und an verschiedenen Orten wieder verwenden.
 
-> [!WARNUNG]
+> [!CAUTION]
 > Dieses Projekt befindet sich noch in den Anfangsphasen der Entwicklung. Nutzung auf eigene Gefahr.
 
-> [!HINWEIS]
+> [!NOTE]
 > Wir suchen Mitwirkende, die uns bei diesem Projekt unterstützen, insbesondere bei der Implementierung neuer Funktionen und Dienstleistungen!
 
 ## Funktionen
