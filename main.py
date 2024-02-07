@@ -1,72 +1,37 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import keyboard
 import pyperclip
 import shutil
 import os
 import datetime
-from ttkthemes import ThemedStyle
-import base64
+import threading
 import win32clipboard
 import win32con
-import functools  # Hinzugefügte Zeile
-import threading 
-import time
-from tkinter import filedialog
 
 clipboard_storage = {}
-copy_key = 'C'
-paste_key = 'M'
-custom_key = 'V'
-copy_key_entry = None
-paste_key_entry = None
-destination_path = None  # Variable zur Speicherung des Zielverzeichnisses
-destination_window = None  # Variable zur Speicherung des Eingabefensters
-
+destination_path = None
+destination_window = None
 
 def update_clipboard_history():
     clipboard_listbox.delete(0, tk.END)
     for key, item in clipboard_storage.items():
         clipboard_listbox.insert(tk.END, key)
 
-def show_details(event=None):
-    selection = clipboard_listbox.curselection()
-    if selection:
-        index = selection[0]
-        key = clipboard_listbox.get(index)
-        item = clipboard_storage.get(key, {'type': 'N/A', 'content': 'Information not available'})
-        timestamp = item.get('timestamp', 'No timestamp available')
-        source = item.get('source', 'No source available')
-        
-        detail_text.config(state=tk.NORMAL)
+def update_detail_text(key):
+    if key in clipboard_storage:
+        item = clipboard_storage[key]
+        detail_text.config(state='normal')
         detail_text.delete('1.0', tk.END)
-        detail_text.insert(tk.END, f"Key: {key}\nType: {item['type']}\nContent: {item['content']}\nTimestamp: {timestamp}\nSource: {source}")
-        detail_text.config(state=tk.DISABLED)
-def is_text(s, text_characters="".join(map(chr, range(32, 127))) + "\n\r\t\b", threshold=0.30):
-    # Funktion, um zu prüfen, ob der Inhalt als Text betrachtet werden kann
-    if "\0" in s:
-        return False  # Enthält Nullbytes, also wahrscheinlich kein Text
-    if not s:  # Leerer String ist "Text"
-        return True
-    # Eine einfache Heuristik, um zu prüfen, ob zu großer Anteil des Strings druckbare Zeichen sind
-    non_text_chars = s.translate({ord(c): None for c in text_characters})
-    return len(non_text_chars) / len(s) <= threshold
-
-def get_file_paths_from_clipboard():
-    win32clipboard.OpenClipboard()
-    paths = []
-    if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
-        data = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
-        for i in range(len(data)):
-            paths.append(data[i])
-    win32clipboard.CloseClipboard()
-    return paths
+        detail_text.insert(tk.END, f"Timestamp: {item['timestamp']}\nType: {item['type']}\nContent:\n")
+        for content in item['content']:
+            detail_text.insert(tk.END, f"- {content}\n")
+        detail_text.config(state='disabled')
 
 def copy_to_clipboard(key):
     file_paths = get_file_paths_from_clipboard()
     timestamp = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
     
-    # Erweitere clipboard_storage, um Listen von Pfaden zu speichern
     if key not in clipboard_storage:
         clipboard_storage[key] = {'type': 'multiple', 'content': [], 'timestamp': timestamp, 'source': []}
     
@@ -75,13 +40,15 @@ def copy_to_clipboard(key):
             print(f"Element gefunden: {file_path}")
             clipboard_storage[key]['content'].append(file_path)
             clipboard_storage[key]['source'].append(file_path)
+        if os.path.isfile(file_paths[0]) and key.startswith('v'):  # Nur öffnen, wenn STRG + V + Key gedrückt wurde und der Key einer Datei entspricht
+            ask_for_destination_path(clipboard_storage[key])
+        update_clipboard_history()  # Liste aktualisieren
     else:
         clipboard_content = pyperclip.paste()
         print("Keine Datei oder Ordner gefunden, speichere als Text.")
-        clipboard_storage[key]['content'].append(clipboard_content)
-        clipboard_storage[key]['source'].append('Direct input' if clipboard_content else 'Unknown')
-    
-    update_clipboard_history()
+        clipboard_storage[key] = {'type': 'text', 'content': [clipboard_content], 'timestamp': timestamp}
+        update_clipboard_history()
+        update_detail_text(key)  # Hier die Detailansicht aktualisieren
 
 def paste_from_clipboard(key):
     global destination_path
@@ -89,9 +56,20 @@ def paste_from_clipboard(key):
     if key in clipboard_storage:
         items = clipboard_storage[key]
         if items['type'] == 'multiple':
-            ask_for_destination_path(items)
+            if os.path.isfile(items['content'][0]):  # Überprüfen, ob der Inhalt eine Datei ist
+                ask_for_destination_path(items)
+            else:
+                pyperclip.copy(items['content'][0])
+                keyboard.send('ctrl+v')
+                update_clipboard_history()  # Aktualisierung der Historienliste
         else:
-            print(f"Ungültiger Typ: {items['type']}")
+            content = items['content'][0]
+            if os.path.isfile(content):  # Überprüfen, ob der Inhalt eine Datei ist
+                ask_for_destination_path(items)
+            else:
+                pyperclip.copy(content)
+                keyboard.send('ctrl+v')
+                update_clipboard_history()  # Aktualisierung der Historienliste
     else:
         print(f"Kein Item gefunden für key: {key}")
 
@@ -100,8 +78,8 @@ def ask_for_destination_path(items):
 
     destination_window = tk.Toplevel()
     destination_window.title("Destination Path")
-    destination_window.transient(root)  # Macht das Fenster zu einem transienten Fenster des Hauptfensters
-    destination_window.grab_set()  # Blockiert Interaktionen mit dem Hauptfenster
+    destination_window.transient(root) 
+    destination_window.grab_set()  
 
     label = ttk.Label(destination_window, text="Select the destination folder path:")
     label.pack(padx=10, pady=5)
@@ -115,7 +93,7 @@ def ask_for_destination_path(items):
         if path:
             destination_path = path
             path_display.config(text="Selected path: " + path)
-            proceed_button.config(state=tk.NORMAL)  # Aktiviere den "OK" Button
+            proceed_button.config(state=tk.NORMAL)  
 
     browse_button = ttk.Button(destination_window, text="Browse...", command=open_file_dialog)
     browse_button.pack(padx=10, pady=5)
@@ -131,44 +109,27 @@ def ask_for_destination_path(items):
     proceed_button = ttk.Button(destination_window, text="OK", command=proceed_with_selected_path, state=tk.DISABLED)
     proceed_button.pack(padx=10, pady=10)
 
-    destination_window.protocol("WM_DELETE_WINDOW", lambda: None)  # Deaktiviert das Schließen des Fensters über das X
+    destination_window.protocol("WM_DELETE_WINDOW", lambda: None)  
+    root.wait_window(destination_window)  
 
-    root.wait_window(destination_window)  # Wartet, bis das modale Fenster geschlossen wird, bevor es mit dem Hauptfenster fortfährt
-
-    def set_destination_path():
-        # Diese Funktion wird ausgelöst, wenn der OK-Button geklickt wird
-        path = entry.get()
-        if path:
-            show_loading_indicator()
-            for item in items['content']:
-                threading.Thread(target=copy_file_and_hide_indicator, args=(item, path)).start()
-
-    # button = ttk.Button(destination_window, text="OK", command=set_destination_path)
-    # button.pack(padx=10, pady=5)
 def copy_file_and_hide_indicator(source, destination_folder):
     global destination_window
     try:
-        # Bestimme, ob der Quellpfad ein Verzeichnis oder eine Datei ist
         if os.path.isdir(source):
-            # Für Verzeichnisse
             basename = os.path.basename(source.rstrip("\\/"))
             final_destination = os.path.join(destination_folder, basename)
-            # Verzeichnis kopieren, dabei einen neuen Namen generieren, falls das Ziel bereits existiert
             final_destination = generate_new_destination(final_destination)
             shutil.copytree(source, final_destination)
             message = f"Ordner erfolgreich nach {final_destination} kopiert."
         else:
-            # Für Dateien
             basename = os.path.basename(source)
             final_destination = os.path.join(destination_folder, basename)
-            # Datei kopieren, dabei einen neuen Namen generieren, falls das Ziel bereits existiert
             final_destination = generate_new_destination(final_destination)
             shutil.copy(source, final_destination)
             message = f"Datei erfolgreich nach {final_destination} kopiert."
     except Exception as e:
         message = f"Fehler beim Kopieren: {e}"
     
-    # Planen Sie die Aktualisierung der GUI im Hauptthread
     root.after(0, lambda: update_gui_after_copy(message))
 
 def update_gui_after_copy(message):
@@ -176,11 +137,7 @@ def update_gui_after_copy(message):
     if destination_window is not None:
         destination_window.destroy()
 
-
 def generate_new_destination(destination_path):
-    """
-    Generiert einen neuen Pfad, wenn das Ziel bereits existiert, indem es eine Zahl an den Namen anhängt.
-    """
     if os.path.exists(destination_path):
         base, extension = os.path.splitext(destination_path)
         counter = 1
@@ -190,7 +147,6 @@ def generate_new_destination(destination_path):
     return destination_path
 
 def show_loading_indicator():
-    global loading_progressbar
     loading_label = ttk.Label(destination_window, text="Übertragung läuft, bitte warten...")
     loading_label.pack(pady=(10, 0))
     
@@ -199,77 +155,26 @@ def show_loading_indicator():
     loading_progressbar['maximum'] = 100
     loading_progressbar['value'] = 0
 
-def hide_loading_indicator():
-    if loading_label is not None:
-        loading_label.destroy()
-
-def generate_new_filename(path, filename):
-    """
-    Generiert einen neuen Dateinamen, wenn eine Datei mit demselben Namen bereits existiert.
-    Fügt ' - Copy' oder ' - Copy{IncrementZahl}' zum Dateinamen hinzu.
-    """
-    base, extension = os.path.splitext(filename)
-    counter = 1
-    new_filename = filename
-    while os.path.exists(os.path.join(path, new_filename)):
-        new_filename = f"{base} - Copy"
-        if counter > 1:
-            new_filename += f"{counter}"
-        new_filename += extension
-        counter += 1
-    return new_filename
-
-def update_progressbar(value):
-    global loading_progressbar
-    loading_progressbar['value'] += value
-    if loading_progressbar['value'] >= loading_progressbar['maximum']:
-        loading_progressbar['value'] = loading_progressbar['maximum']
+def get_file_paths_from_clipboard():
+    win32clipboard.OpenClipboard()
+    paths = []
+    if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_HDROP):
+        data = win32clipboard.GetClipboardData(win32clipboard.CF_HDROP)
+        for i in range(len(data)):
+            paths.append(data[i])
+    win32clipboard.CloseClipboard()
+    return paths
 
 def delete_from_clipboard(key):
     if key in clipboard_storage:
         del clipboard_storage[key]
         update_clipboard_history()
 
-def delete_item(event):
-    selection = clipboard_listbox.curselection()
-    if selection:
-        index = selection[0]
-        key = clipboard_listbox.get(index)
-        if key in clipboard_storage:
-            del clipboard_storage[key]
-            update_clipboard_history()
-            detail_text.config(state=tk.NORMAL)
-            detail_text.delete('1.0', tk.END)
-            detail_text.config(state=tk.DISABLED)
-
-def show_settings():
-    global copy_key, paste_key, custom_key, copy_key_entry, paste_key_entry
-
-    settings_window = tk.Toplevel(root)
-    settings_window.title("Settings")
-    
-    # Hier bleibt die Konfiguration der Tastenkombinationen unverändert
-    
-    settings_frame = ttk.Frame(settings_window)
-    settings_frame.pack(padx=10, pady=5)
-
-    # Hier bleibt die Konfiguration der Tastenkombinationen unverändert
-
-    def save_shortcuts():
-        settings_window.destroy()
-
-    save_button = ttk.Button(settings_frame, text="Save", command=save_shortcuts)
-    save_button.grid(row=3, columnspan=2, padx=5, pady=10)
-
 root = tk.Tk()
 root.title("Clipboard Manager")
-root.title("Clipboard Manager")
 
-# Verwendung des Arc Designs aus ttkthemes
-
-style = ThemedStyle(root)
-style.set_theme("arc")
-
+style = ttk.Style()
+style.theme_use('clam')
 main_frame = ttk.Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
@@ -289,23 +194,19 @@ detail_text = tk.Text(status_detail_frame, height=10, wrap='word', state='disabl
 detail_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
 context_menu = tk.Menu(root, tearoff=0)
-context_menu.add_command(label="Delete", command=lambda: delete_item(None))
+context_menu.add_command(label="Delete", command=lambda: delete_from_clipboard(clipboard_listbox.get(tk.ACTIVE)))
 
 clipboard_listbox.bind("<Button-3>", lambda e: context_menu.post(e.x_root, e.y_root))
-
-clipboard_listbox.bind('<<ListboxSelect>>', show_details)
+clipboard_listbox.bind("<<ListboxSelect>>", lambda e: update_detail_text(clipboard_listbox.get(tk.ACTIVE)))
 
 menu_bar = tk.Menu(root)
 root.config(menu=menu_bar)
-
-settings_menu = tk.Menu(menu_bar, tearoff=0)
-menu_bar.add_cascade(label="Settings", menu=settings_menu)
-settings_menu.add_command(label="Open Settings", command=show_settings)
 
 valid_keys = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 for key in valid_keys:
     keyboard.add_hotkey(f'ctrl+c+{key}', lambda k=key: copy_to_clipboard(k))
     keyboard.add_hotkey(f'ctrl+shift+{key}', lambda k=key: paste_from_clipboard(k))
     keyboard.add_hotkey(f'ctrl+alt+{key}', lambda k=key: delete_from_clipboard(k))
+    keyboard.add_hotkey(f'ctrl+v+{key}', lambda k=key: paste_from_clipboard(key))  # Hinzufügen dieser Zeile
 
 root.mainloop()
