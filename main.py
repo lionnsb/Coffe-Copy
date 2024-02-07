@@ -16,7 +16,7 @@ destination_window = None
 def update_clipboard_history():
     clipboard_listbox.delete(0, tk.END)
     for key, item in clipboard_storage.items():
-        clipboard_listbox.insert(tk.END, key)
+        clipboard_listbox.insert(tk.END, f"{key}: {item['content']}")
 
 def update_detail_text(key):
     if key in clipboard_storage:
@@ -165,24 +165,30 @@ def get_file_paths_from_clipboard():
     win32clipboard.CloseClipboard()
     return paths
 
-def delete_from_clipboard(key):
-    if key in clipboard_storage:
+def delete_from_clipboard():
+    selected_index = clipboard_listbox.curselection()
+    if selected_index:
+        selected_key = clipboard_listbox.get(selected_index)
+        key = selected_key.split(":")[0].strip()
         del clipboard_storage[key]
-        update_clipboard_history()
+        clipboard_listbox.delete(selected_index)
+
 
 root = tk.Tk()
 root.title("Clipboard Manager")
 
-style = ttk.Style()
-style.theme_use('clam')
+# Rahmen und Hintergrundfarben entsprechend dem ursprünglichen Design des Clipboard Managers
+root.configure(bg="#f0f0f0")
+
 main_frame = ttk.Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
 history_frame = ttk.Frame(main_frame)
 history_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+# Änderungen an der Liste, um dem ursprünglichen Design des Clipboard Managers zu entsprechen
 listbox_scrollbar = ttk.Scrollbar(history_frame, orient=tk.VERTICAL)
-clipboard_listbox = tk.Listbox(history_frame, yscrollcommand=listbox_scrollbar.set)
+clipboard_listbox = tk.Listbox(history_frame, yscrollcommand=listbox_scrollbar.set, bg="white", borderwidth=0)
 listbox_scrollbar.config(command=clipboard_listbox.yview)
 listbox_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 clipboard_listbox.pack(fill=tk.BOTH, expand=True)
@@ -190,11 +196,12 @@ clipboard_listbox.pack(fill=tk.BOTH, expand=True)
 status_detail_frame = ttk.Frame(main_frame)
 status_detail_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-detail_text = tk.Text(status_detail_frame, height=10, wrap='word', state='disabled', background='#f0f0f0')
+# Änderungen am Textfeld, um dem ursprünglichen Design des Clipboard Managers zu entsprechen
+detail_text = tk.Text(status_detail_frame, height=10, wrap='word', state='disabled', background='white', borderwidth=0)
 detail_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
 context_menu = tk.Menu(root, tearoff=0)
-context_menu.add_command(label="Delete", command=lambda: delete_from_clipboard(clipboard_listbox.get(tk.ACTIVE)))
+context_menu.add_command(label="Delete", command=delete_from_clipboard)
 
 clipboard_listbox.bind("<Button-3>", lambda e: context_menu.post(e.x_root, e.y_root))
 clipboard_listbox.bind("<<ListboxSelect>>", lambda e: update_detail_text(clipboard_listbox.get(tk.ACTIVE)))
