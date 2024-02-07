@@ -101,6 +101,7 @@ def paste_from_clipboard(key):
             ask_for_destination_path(item)  # Änderung: Übergeben des Items an die Funktion
     else:
         print(f"Kein Item gefunden für key: {key}")  # Wenn der Schlüssel nicht gefunden wurde
+
 def ask_for_destination_path(item):
     global destination_path, destination_window
     destination_window = tk.Toplevel()
@@ -116,11 +117,30 @@ def ask_for_destination_path(item):
         global destination_path
         path = entry.get()
         if path:
-            show_loading_indicator()  # Zeige den Lade-Indikator
+            destination_path = path  # Hier speicherst du nur den Ordnerpfad
+            show_loading_indicator()
+            # Übergib den vollständigen Pfad, einschließlich Dateiname, an die Funktion
             threading.Thread(target=copy_file_and_hide_indicator, args=(item['content'], path)).start()
     
     button = ttk.Button(destination_window, text="OK", command=set_destination_path)
     button.pack(padx=10, pady=5)
+
+def copy_file_and_hide_indicator(source, destination_folder):
+    global destination_window
+    try:
+        # Bereite den Dateinamen vor
+        filename = os.path.basename(source)  # Extrahiere den Dateinamen aus dem Quellpfad
+        destination_path = os.path.join(destination_folder, filename)  # Füge den Dateinamen zum Zielordnerpfad hinzu
+        new_filename = generate_new_filename(destination_folder, filename)  # Generiere einen neuen Dateinamen, falls erforderlich
+        final_destination = os.path.join(destination_folder, new_filename)
+        
+        shutil.copy(source, final_destination)
+        print(f"Datei erfolgreich nach {final_destination} kopiert.")
+    except Exception as e:
+        print(f"Fehler beim Kopieren der Datei: {e}")
+    finally:
+        if destination_window is not None:
+            destination_window.after(100, destination_window.destroy)
 
 def show_loading_indicator():
     global loading_progressbar
@@ -136,21 +156,21 @@ def hide_loading_indicator():
     if loading_label is not None:
         loading_label.destroy()
 
-def copy_file_and_hide_indicator(source, destination):
-    global destination_window, loading_progressbar
-    try:
-        # Starte den Kopiervorgang in einem neuen Thread
-        shutil.copy(source, destination)
-        print(f"Datei erfolgreich nach {destination} kopiert.")
-        for _ in range(100):
-            # Simuliere den Fortschritt
-            destination_window.after(10, update_progressbar, 1)
-            time.sleep(0.02)  # Warte kurz, um die GUI nicht zu blockieren
-    except Exception as e:
-        print(f"Fehler beim Kopieren der Datei: {e}")
-    finally:
-        if destination_window is not None:
-            destination_window.after(100, destination_window.destroy)  # Schließe das Fenster
+def generate_new_filename(path, filename):
+    """
+    Generiert einen neuen Dateinamen, wenn eine Datei mit demselben Namen bereits existiert.
+    Fügt ' - Copy' oder ' - Copy{IncrementZahl}' zum Dateinamen hinzu.
+    """
+    base, extension = os.path.splitext(filename)
+    counter = 1
+    new_filename = filename
+    while os.path.exists(os.path.join(path, new_filename)):
+        new_filename = f"{base} - Copy"
+        if counter > 1:
+            new_filename += f"{counter}"
+        new_filename += extension
+        counter += 1
+    return new_filename
 
 def update_progressbar(value):
     global loading_progressbar
