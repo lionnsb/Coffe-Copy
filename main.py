@@ -9,6 +9,7 @@ import threading
 import win32clipboard
 import win32con
 import time
+import textwrap
 
 clipboard_storage = {}
 destination_path = None
@@ -17,32 +18,28 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(script_dir)
 
 def check_if_clipboard_empty():
-    # Lösche die vorherige Nachricht, wenn vorhanden, und zeige eine neue an, falls leer.
     for widget in history_frame.winfo_children():
-        widget.destroy()  # Entferne alle vorhandenen Widgets
+        widget.destroy()  
     if not clipboard_storage:
         show_empty_clipboard_message()
     else:
-        hide_empty_clipboard_message()  # Verstecke den Platzhalter, wenn die Zwischenablage nicht leer ist
+        hide_empty_clipboard_message()  
 
-placeholder_frame = None  # Neuer Frame für den Platzhaltertext
+placeholder_frame = None  
 
 def show_empty_clipboard_message():
     global placeholder_frame
-    # Lösche den vorhandenen Platzhalter, falls vorhanden
     if placeholder_frame is not None:
         placeholder_frame.destroy()
     
-    # Neuer Frame für den Platzhalter
     placeholder_frame = ttk.Frame(history_frame, padding=10)  
     placeholder_frame.pack(expand=True, fill=tk.BOTH)  
 
-    # Text für den Platzhalter ohne Bild
     empty_message_label = ttk.Label(placeholder_frame, text="Deine Zwischenablage ist leer\n"
                                                             "Lass uns gemeinsam Geschichte schreiben, "
                                                             "indem du mehrere Elemente kopierst.",
-                                    background="white", wraplength=300)
-    empty_message_label.pack(expand=True, pady=10)  # Zentriere den Text
+                                    background="#ffffff", foreground="#000000", wraplength=300)
+    empty_message_label.pack(expand=True, pady=10)  
 
 def hide_empty_clipboard_message():
     global placeholder_frame
@@ -50,28 +47,45 @@ def hide_empty_clipboard_message():
         placeholder_frame.pack_forget()
 
 def update_clipboard_history():
-    # Lösche alle vorherigen Cards und prüfe, ob die Zwischenablage leer ist
     check_if_clipboard_empty()
 
-    # Erstelle für jedes Item in clipboard_storage eine Card
     for key, item in clipboard_storage.items():
         create_clipboard_card(key, item)
 
-    # Aktualisiere die Scrollregion des Canvas
     update_scrollregion()
 
+def truncate_string(content, max_length=450):
+    """
+    Kürzt einen String auf die maximale Länge, einschließlich der Platzierung von '...'
+    am Ende, falls der Text länger als die maximale Länge ist.
+    """
+    return textwrap.shorten(content, width=max_length, placeholder="...")
+
 def create_clipboard_card(key, item):
-    card_frame = ttk.Frame(history_frame)
+    card_frame = ttk.Frame(history_frame, width=300, height=70)  # Breite und Höhe erhöht
     card_frame.pack(fill=tk.X, padx=5, pady=5)
 
-    card_label = ttk.Label(card_frame, text=f"{key}: {item['content']}", background="white", wraplength=300)  # Hier die wraplength anpassen
-    card_label.pack(side=tk.LEFT, padx=5, pady=5)
+    # Überprüfe, ob der Inhalt ein einzelner String oder eine Liste von Strings ist
+    if isinstance(item['content'], list):
+        # Wenn es sich um eine Liste handelt, fassen wir die Elemente zu einem String zusammen
+        content_str = ', '.join(item['content'])
+        truncated_content = truncate_string(content_str)
+    else:
+        # Wenn es sich um einen einzelnen String handelt, verwenden wir ihn direkt
+        truncated_content = truncate_string(item['content'])
 
+    card_label = ttk.Label(card_frame, text=f"{key}: {truncated_content}", background="#ffffff", foreground="#000000", wraplength=280)  # Wraplänge und Breite des Labels angepasst
+    card_label.pack(side=tk.LEFT, padx=10, pady=10)
+    
     card_menu_button = ttk.Menubutton(card_frame, text="...", direction="above")
     card_menu = tk.Menu(card_menu_button, tearoff=0)
     card_menu.add_command(label="Delete", command=lambda k=key: delete_from_clipboard(k))
     card_menu_button['menu'] = card_menu
-    card_menu_button.pack(side=tk.RIGHT, padx=5, pady=5)
+    card_menu_button.pack(side=tk.RIGHT, padx=10, pady=10)
+
+    # Aktualisiere das Label nach dem Kürzen des Inhalts
+    card_label.config(text=f"{key}: {truncated_content}")
+
 
 def copy_to_clipboard(key):
     file_paths = get_file_paths_from_clipboard()
@@ -85,9 +99,9 @@ def copy_to_clipboard(key):
             print(f"Element gefunden: {file_path}")
             clipboard_storage[key]['content'].append(file_path)
             clipboard_storage[key]['source'].append(file_path)
-        if os.path.isfile(file_paths[0]) and key.startswith('v'):  # Nur öffnen, wenn STRG + V + Key gedrückt wurde und der Key einer Datei entspricht
+        if os.path.isfile(file_paths[0]) and key.startswith('v'):  
             ask_for_destination_path(clipboard_storage[key])
-        update_clipboard_history()  # Cards aktualisieren
+        update_clipboard_history()  
     else:
         clipboard_content = pyperclip.paste()
         print("Keine Datei oder Ordner gefunden, speichere als Text.")
@@ -100,20 +114,20 @@ def paste_from_clipboard(key):
     if key in clipboard_storage:
         items = clipboard_storage[key]
         if items['type'] == 'multiple':
-            if os.path.isfile(items['content'][0]):  # Überprüfen, ob der Inhalt eine Datei ist
+            if os.path.isfile(items['content'][0]):  
                 ask_for_destination_path(items)
             else:
                 pyperclip.copy(items['content'][0])
                 keyboard.send('ctrl+v')
-                update_clipboard_history()  # Aktualisierung der Historien-Cards
+                update_clipboard_history()  
         else:
             content = items['content'][0]
-            if os.path.isfile(content):  # Überprüfen, ob der Inhalt eine Datei ist
+            if os.path.isfile(content):  
                 ask_for_destination_path(items)
             else:
                 pyperclip.copy(content)
                 keyboard.send('ctrl+v')
-                update_clipboard_history()  # Aktualisierung der Historien-Cards
+                update_clipboard_history()  
     else:
         print(f"Kein Item gefunden für key: {key}")
 
@@ -229,41 +243,31 @@ def on_mousewheel(event):
 root = tk.Tk()
 root.title("Clipboard Manager")
 
-# Setze die Größe der Anwendung auf 395x292 Pixel und deaktiviere das Ändern der Größe
 root.geometry("395x292")
 root.resizable(False, False)
 
-# Rahmen und Hintergrundfarben entsprechend dem ursprünglichen Design des Clipboard Managers
 root.configure(bg="#f0f0f0")
 
-# Erstelle ein Frame, um das Canvas und die Scrollbaacar zu umgeben
 main_frame = ttk.Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-# Erstelle ein Canvas Widget, um die history_frame zu umgeben
 history_canvas = tk.Canvas(main_frame)
 history_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-# Füge eine Scrollbar hinzu und verbinde sie mit dem Canvas
 scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=history_canvas.yview)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 history_canvas.configure(yscrollcommand=scrollbar.set)
 
-# Erstelle ein Frame im Canvas, um die Karten anzuzeigen
 history_frame = ttk.Frame(history_canvas)
-history_frame.pack(fill=tk.BOTH, expand=True)  # Ändern Sie hier 'pack' zu 'grid', wenn das Layout nicht wie erwartet ist
+history_frame.pack(fill=tk.BOTH, expand=True)  
 
-# Erstelle eine Canvas-Window-Konfiguration
 history_canvas.create_window((0, 0), window=history_frame, anchor="nw")
 
-# Binden des Scrollregion-Updates an die Änderungen in history_frame
 history_frame.bind("<Configure>", update_scrollregion)
 
-# Mausrad-Scrollen hinzufügen
 history_canvas.bind_all("<MouseWheel>", on_mousewheel)
 
 context_menu = tk.Menu(root, tearoff=0)
-# Menu zur GUI hinzufügen
 root.config(menu=context_menu)
 
 valid_keys = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
@@ -271,6 +275,6 @@ for key in valid_keys:
     keyboard.add_hotkey(f'ctrl+c+{key}', lambda k=key: copy_to_clipboard(k))
     keyboard.add_hotkey(f'ctrl+shift+{key}', lambda k=key: paste_from_clipboard(k))
     keyboard.add_hotkey(f'ctrl+alt+{key}', lambda k=key: delete_from_clipboard(k))
-    keyboard.add_hotkey(f'ctrl+v+{key}', lambda k=key: paste_from_clipboard(key))  # Hinzufügen dieser Zeile
+    keyboard.add_hotkey(f'ctrl+v+{key}', lambda k=key: paste_from_clipboard(key))  
 
 root.mainloop()
