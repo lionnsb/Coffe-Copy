@@ -10,6 +10,8 @@ import base64
 import win32clipboard
 import win32con
 import functools  # Hinzugefügte Zeile
+import threading 
+import time
 
 clipboard_storage = {}
 copy_key = 'C'
@@ -99,7 +101,6 @@ def paste_from_clipboard(key):
             ask_for_destination_path(item)  # Änderung: Übergeben des Items an die Funktion
     else:
         print(f"Kein Item gefunden für key: {key}")  # Wenn der Schlüssel nicht gefunden wurde
-
 def ask_for_destination_path(item):
     global destination_path, destination_window
     destination_window = tk.Toplevel()
@@ -111,20 +112,51 @@ def ask_for_destination_path(item):
     entry = ttk.Entry(destination_window)
     entry.pack(padx=10, pady=5)
     
-    # Die Methode set_destination_path wird aufgerufen, wenn der "OK"-Button geklickt wird
     def set_destination_path():
+        global destination_path
         path = entry.get()
         if path:
-            try:
-                shutil.copy(item['content'], path)  # Dateiübertragung hier durchführen
-                print(f"Datei erfolgreich nach {path} kopiert.")  # Erfolgreiches Kopieren bestätigen
-            except Exception as e:
-                print(f"Fehler beim Kopieren der Datei: {e}")  # Fehlermeldung
-        destination_path = path  # Aktualisieren der globalen Variable
-        destination_window.destroy()
+            show_loading_indicator()  # Zeige den Lade-Indikator
+            threading.Thread(target=copy_file_and_hide_indicator, args=(item['content'], path)).start()
     
     button = ttk.Button(destination_window, text="OK", command=set_destination_path)
     button.pack(padx=10, pady=5)
+
+def show_loading_indicator():
+    global loading_progressbar
+    loading_label = ttk.Label(destination_window, text="Übertragung läuft, bitte warten...")
+    loading_label.pack(pady=(10, 0))
+    
+    loading_progressbar = ttk.Progressbar(destination_window, orient="horizontal", length=200, mode="determinate")
+    loading_progressbar.pack(pady=10)
+    loading_progressbar['maximum'] = 100
+    loading_progressbar['value'] = 0
+
+def hide_loading_indicator():
+    if loading_label is not None:
+        loading_label.destroy()
+
+def copy_file_and_hide_indicator(source, destination):
+    global destination_window, loading_progressbar
+    try:
+        # Starte den Kopiervorgang in einem neuen Thread
+        shutil.copy(source, destination)
+        print(f"Datei erfolgreich nach {destination} kopiert.")
+        for _ in range(100):
+            # Simuliere den Fortschritt
+            destination_window.after(10, update_progressbar, 1)
+            time.sleep(0.02)  # Warte kurz, um die GUI nicht zu blockieren
+    except Exception as e:
+        print(f"Fehler beim Kopieren der Datei: {e}")
+    finally:
+        if destination_window is not None:
+            destination_window.after(100, destination_window.destroy)  # Schließe das Fenster
+
+def update_progressbar(value):
+    global loading_progressbar
+    loading_progressbar['value'] += value
+    if loading_progressbar['value'] >= loading_progressbar['maximum']:
+        loading_progressbar['value'] = loading_progressbar['maximum']
 
 def delete_from_clipboard(key):
     if key in clipboard_storage:
