@@ -125,19 +125,30 @@ def ask_for_destination_path(item):
     button = ttk.Button(destination_window, text="OK", command=set_destination_path)
     button.pack(padx=10, pady=5)
 
-def copy_file_and_hide_indicator(source, destination_folder):
+def copy_file_and_hide_indicator(source, destination_path):
     global destination_window
     try:
-        # Bereite den Dateinamen vor
-        filename = os.path.basename(source)  # Extrahiere den Dateinamen aus dem Quellpfad
-        destination_path = os.path.join(destination_folder, filename)  # Füge den Dateinamen zum Zielordnerpfad hinzu
-        new_filename = generate_new_filename(destination_folder, filename)  # Generiere einen neuen Dateinamen, falls erforderlich
-        final_destination = os.path.join(destination_folder, new_filename)
-        
-        shutil.copy(source, final_destination)
-        print(f"Datei erfolgreich nach {final_destination} kopiert.")
+        # Überprüfen, ob der Quellpfad ein Verzeichnis ist
+        if os.path.isdir(source):
+            # Bereite den Zielordnerpfad vor
+            basename = os.path.basename(source.rstrip("\\/"))
+            final_destination = os.path.join(destination_path, basename)
+            counter = 1
+            while os.path.exists(final_destination):
+                final_destination = os.path.join(destination_path, f"{basename} - Copy{counter}")
+                counter += 1
+            # Kopiere den gesamten Ordner
+            shutil.copytree(source, final_destination)
+            print(f"Ordner erfolgreich nach {final_destination} kopiert.")
+        else:
+            # Es ist eine Datei; verfahre wie zuvor
+            destination_dir, original_filename = os.path.split(destination_path)
+            new_filename = generate_new_filename(destination_dir, original_filename)
+            final_destination = os.path.join(destination_dir, new_filename)
+            shutil.copy(source, final_destination)
+            print(f"Datei erfolgreich nach {final_destination} kopiert.")
     except Exception as e:
-        print(f"Fehler beim Kopieren der Datei: {e}")
+        print(f"Fehler beim Kopieren: {e}")
     finally:
         if destination_window is not None:
             destination_window.after(100, destination_window.destroy)
