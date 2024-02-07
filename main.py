@@ -12,6 +12,7 @@ import win32con
 import functools  # Hinzugefügte Zeile
 import threading 
 import time
+from tkinter import filedialog
 
 clipboard_storage = {}
 copy_key = 'C'
@@ -96,28 +97,54 @@ def paste_from_clipboard(key):
 
 def ask_for_destination_path(items):
     global destination_path, destination_window
+
     destination_window = tk.Toplevel()
     destination_window.title("Destination Path")
-    
-    label = ttk.Label(destination_window, text="Enter the destination folder path:")
+    destination_window.transient(root)  # Macht das Fenster zu einem transienten Fenster des Hauptfensters
+    destination_window.grab_set()  # Blockiert Interaktionen mit dem Hauptfenster
+
+    label = ttk.Label(destination_window, text="Select the destination folder path:")
     label.pack(padx=10, pady=5)
-    
-    entry = ttk.Entry(destination_window)
-    entry.pack(padx=10, pady=5)
-    
-    def set_destination_path():
+
+    path_display = ttk.Label(destination_window, text="No path selected")
+    path_display.pack(padx=10, pady=5)
+
+    def open_file_dialog():
         global destination_path
-        path = entry.get()
+        path = filedialog.askdirectory()
         if path:
             destination_path = path
+            path_display.config(text="Selected path: " + path)
+            proceed_button.config(state=tk.NORMAL)  # Aktiviere den "OK" Button
+
+    browse_button = ttk.Button(destination_window, text="Browse...", command=open_file_dialog)
+    browse_button.pack(padx=10, pady=5)
+
+    def proceed_with_selected_path():
+        if destination_path:
             show_loading_indicator()
             for item in items['content']:
-                # Für jedes Element einen separaten Thread starten
-                threading.Thread(target=copy_file_and_hide_indicator, args=(item, path)).start()
-    
-    button = ttk.Button(destination_window, text="OK", command=set_destination_path)
-    button.pack(padx=10, pady=5)
+                thread = threading.Thread(target=copy_file_and_hide_indicator, args=(item, destination_path))
+                thread.start()
+            destination_window.destroy()
 
+    proceed_button = ttk.Button(destination_window, text="OK", command=proceed_with_selected_path, state=tk.DISABLED)
+    proceed_button.pack(padx=10, pady=10)
+
+    destination_window.protocol("WM_DELETE_WINDOW", lambda: None)  # Deaktiviert das Schließen des Fensters über das X
+
+    root.wait_window(destination_window)  # Wartet, bis das modale Fenster geschlossen wird, bevor es mit dem Hauptfenster fortfährt
+
+    def set_destination_path():
+        # Diese Funktion wird ausgelöst, wenn der OK-Button geklickt wird
+        path = entry.get()
+        if path:
+            show_loading_indicator()
+            for item in items['content']:
+                threading.Thread(target=copy_file_and_hide_indicator, args=(item, path)).start()
+
+    # button = ttk.Button(destination_window, text="OK", command=set_destination_path)
+    # button.pack(padx=10, pady=5)
 def copy_file_and_hide_indicator(source, destination_folder):
     global destination_window
     try:
@@ -129,7 +156,7 @@ def copy_file_and_hide_indicator(source, destination_folder):
             # Verzeichnis kopieren, dabei einen neuen Namen generieren, falls das Ziel bereits existiert
             final_destination = generate_new_destination(final_destination)
             shutil.copytree(source, final_destination)
-            print(f"Ordner erfolgreich nach {final_destination} kopiert.")
+            message = f"Ordner erfolgreich nach {final_destination} kopiert."
         else:
             # Für Dateien
             basename = os.path.basename(source)
@@ -137,12 +164,18 @@ def copy_file_and_hide_indicator(source, destination_folder):
             # Datei kopieren, dabei einen neuen Namen generieren, falls das Ziel bereits existiert
             final_destination = generate_new_destination(final_destination)
             shutil.copy(source, final_destination)
-            print(f"Datei erfolgreich nach {final_destination} kopiert.")
+            message = f"Datei erfolgreich nach {final_destination} kopiert."
     except Exception as e:
-        print(f"Fehler beim Kopieren: {e}")
-    finally:
-        if destination_window is not None:
-            destination_window.after(100, destination_window.destroy)
+        message = f"Fehler beim Kopieren: {e}"
+    
+    # Planen Sie die Aktualisierung der GUI im Hauptthread
+    root.after(0, lambda: update_gui_after_copy(message))
+
+def update_gui_after_copy(message):
+    print(message)
+    if destination_window is not None:
+        destination_window.destroy()
+
 
 def generate_new_destination(destination_path):
     """
