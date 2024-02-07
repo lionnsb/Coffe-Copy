@@ -65,44 +65,36 @@ def copy_to_clipboard(key):
     file_paths = get_file_paths_from_clipboard()
     timestamp = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
     
+    # Erweitere clipboard_storage, um Listen von Pfaden zu speichern
+    if key not in clipboard_storage:
+        clipboard_storage[key] = {'type': 'multiple', 'content': [], 'timestamp': timestamp, 'source': []}
+    
     if file_paths:
         for file_path in file_paths:
-            print(f"Datei gefunden: {file_path}")  # Bestätigen, dass es eine Datei ist
-            clipboard_storage[key] = {
-                'type': 'file',
-                'content': file_path,  # Speichert den Pfad der Datei
-                'timestamp': timestamp,
-                'source': file_path
-            }
-            break  # Nehmen Sie nur den ersten Pfad, wenn mehrere vorhanden sind
+            print(f"Element gefunden: {file_path}")
+            clipboard_storage[key]['content'].append(file_path)
+            clipboard_storage[key]['source'].append(file_path)
     else:
         clipboard_content = pyperclip.paste()
-        print("Keine Datei gefunden, speichere als Text.")  # Hinweis, wenn kein Dateipfad
-        clipboard_storage[key] = {
-            'type': 'text',
-            'content': clipboard_content,
-            'timestamp': timestamp,
-            'source': 'Direct input' if clipboard_content else 'Unknown'
-        }
+        print("Keine Datei oder Ordner gefunden, speichere als Text.")
+        clipboard_storage[key]['content'].append(clipboard_content)
+        clipboard_storage[key]['source'].append('Direct input' if clipboard_content else 'Unknown')
+    
     update_clipboard_history()
 
 def paste_from_clipboard(key):
-    global destination_path  # Verwendung der globalen Variable
-    print(f"paste_from_clipboard aufgerufen mit key: {key}")  # Debugging-Ausgabe
+    global destination_path
+    print(f"paste_from_clipboard aufgerufen mit key: {key}")
     if key in clipboard_storage:
-        item = clipboard_storage[key]
-        print(f"Item-Typ: {item['type']}")  # Loggen des Typs des Items
-        if item['type'] == 'text':
-            text = item['content']
-            pyperclip.copy(text)
-            keyboard.press_and_release('ctrl+v')
-        elif item['type'] == 'file':
-            print(f"Frage nach Zielverzeichnis für: {item['content']}")  # Vor dem Dialog anzeigen
-            ask_for_destination_path(item)  # Änderung: Übergeben des Items an die Funktion
+        items = clipboard_storage[key]
+        if items['type'] == 'multiple':
+            ask_for_destination_path(items)
+        else:
+            print(f"Ungültiger Typ: {items['type']}")
     else:
-        print(f"Kein Item gefunden für key: {key}")  # Wenn der Schlüssel nicht gefunden wurde
+        print(f"Kein Item gefunden für key: {key}")
 
-def ask_for_destination_path(item):
+def ask_for_destination_path(items):
     global destination_path, destination_window
     destination_window = tk.Toplevel()
     destination_window.title("Destination Path")
@@ -117,34 +109,33 @@ def ask_for_destination_path(item):
         global destination_path
         path = entry.get()
         if path:
-            destination_path = path  # Hier speicherst du nur den Ordnerpfad
+            destination_path = path
             show_loading_indicator()
-            # Übergib den vollständigen Pfad, einschließlich Dateiname, an die Funktion
-            threading.Thread(target=copy_file_and_hide_indicator, args=(item['content'], path)).start()
+            for item in items['content']:
+                # Für jedes Element einen separaten Thread starten
+                threading.Thread(target=copy_file_and_hide_indicator, args=(item, path)).start()
     
     button = ttk.Button(destination_window, text="OK", command=set_destination_path)
     button.pack(padx=10, pady=5)
 
-def copy_file_and_hide_indicator(source, destination_path):
+def copy_file_and_hide_indicator(source, destination_folder):
     global destination_window
     try:
-        # Überprüfen, ob der Quellpfad ein Verzeichnis ist
+        # Bestimme, ob der Quellpfad ein Verzeichnis oder eine Datei ist
         if os.path.isdir(source):
-            # Bereite den Zielordnerpfad vor
+            # Für Verzeichnisse
             basename = os.path.basename(source.rstrip("\\/"))
-            final_destination = os.path.join(destination_path, basename)
-            counter = 1
-            while os.path.exists(final_destination):
-                final_destination = os.path.join(destination_path, f"{basename} - Copy{counter}")
-                counter += 1
-            # Kopiere den gesamten Ordner
+            final_destination = os.path.join(destination_folder, basename)
+            # Verzeichnis kopieren, dabei einen neuen Namen generieren, falls das Ziel bereits existiert
+            final_destination = generate_new_destination(final_destination)
             shutil.copytree(source, final_destination)
             print(f"Ordner erfolgreich nach {final_destination} kopiert.")
         else:
-            # Es ist eine Datei; verfahre wie zuvor
-            destination_dir, original_filename = os.path.split(destination_path)
-            new_filename = generate_new_filename(destination_dir, original_filename)
-            final_destination = os.path.join(destination_dir, new_filename)
+            # Für Dateien
+            basename = os.path.basename(source)
+            final_destination = os.path.join(destination_folder, basename)
+            # Datei kopieren, dabei einen neuen Namen generieren, falls das Ziel bereits existiert
+            final_destination = generate_new_destination(final_destination)
             shutil.copy(source, final_destination)
             print(f"Datei erfolgreich nach {final_destination} kopiert.")
     except Exception as e:
@@ -152,6 +143,18 @@ def copy_file_and_hide_indicator(source, destination_path):
     finally:
         if destination_window is not None:
             destination_window.after(100, destination_window.destroy)
+
+def generate_new_destination(destination_path):
+    """
+    Generiert einen neuen Pfad, wenn das Ziel bereits existiert, indem es eine Zahl an den Namen anhängt.
+    """
+    if os.path.exists(destination_path):
+        base, extension = os.path.splitext(destination_path)
+        counter = 1
+        while os.path.exists(f"{base} - Copy{counter}{extension}"):
+            counter += 1
+        return f"{base} - Copy{counter}{extension}"
+    return destination_path
 
 def show_loading_indicator():
     global loading_progressbar
