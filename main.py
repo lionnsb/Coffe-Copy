@@ -49,44 +49,65 @@ def hide_empty_clipboard_message():
 def update_clipboard_history():
     check_if_clipboard_empty()
 
-    for key, item in clipboard_storage.items():
-        create_clipboard_card(key, item)
+    # Erstelle eine sortierte Liste der Schlüssel nach dem Zeitstempel, um die Reihenfolge der Karten zu steuern
+    sorted_keys = sorted(clipboard_storage.keys(), key=lambda k: clipboard_storage[k]['timestamp'], reverse=True)
+
+    max_width = 0
+    max_height = 0
+
+    # Durchlaufe die sortierten Schlüssel und erstelle die entsprechenden Karten
+    for key in sorted_keys:
+        item = clipboard_storage[key]
+        card_frame, card_label = create_clipboard_card(key, item)
+        card_width = card_frame.winfo_reqwidth()
+        card_height = card_frame.winfo_reqheight()
+
+        if card_width > max_width:
+            max_width = card_width
+        if card_height > max_height:
+            max_height = card_height
+
+    # Setze die maximale Breite und Höhe für alle Karten
+    for key in sorted_keys:
+        item = clipboard_storage[key]
+        card_frame = item['frame']
+        card_frame.config(width=max_width, height=max_height)
 
     update_scrollregion()
+    
+def create_clipboard_card(key, item):
+    # Karte erstellen
+    card_frame = ttk.Frame(history_frame, width=280, height=100)
+    card_frame.pack(fill=tk.X, padx=5, pady=10)
 
-def truncate_string(content, max_length=450):
+    # Füge den Schlüssel 'frame' zum Dictionary 'item' hinzu
+    item['frame'] = card_frame
+
+    # Überprüfen, ob der Inhalt ein einzelner String oder eine Liste von Strings ist
+    if isinstance(item['content'], list):
+        content_str = ', '.join(item['content'])
+        truncated_content = truncate_string(content_str)
+    else:
+        truncated_content = truncate_string(item['content'])
+
+    # Label für die Karte erstellen
+    card_label = ttk.Label(card_frame, text=f"{key}: {truncated_content}", background="#ffffff", foreground="#000000", wraplength=260)
+    card_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    # Die Scrollregion aktualisieren, um sicherzustellen, dass neue Karten angezeigt werden
+    update_scrollregion()
+
+    return card_frame, card_label
+    
+def truncate_string(content, max_length=255):
     """
     Kürzt einen String auf die maximale Länge, einschließlich der Platzierung von '...'
     am Ende, falls der Text länger als die maximale Länge ist.
     """
+    
     return textwrap.shorten(content, width=max_length, placeholder="...")
 
-def create_clipboard_card(key, item):
-    card_frame = ttk.Frame(history_frame, width=300, height=70)  # Breite und Höhe erhöht
-    card_frame.pack(fill=tk.X, padx=5, pady=5)
-
-    # Überprüfe, ob der Inhalt ein einzelner String oder eine Liste von Strings ist
-    if isinstance(item['content'], list):
-        # Wenn es sich um eine Liste handelt, fassen wir die Elemente zu einem String zusammen
-        content_str = ', '.join(item['content'])
-        truncated_content = truncate_string(content_str)
-    else:
-        # Wenn es sich um einen einzelnen String handelt, verwenden wir ihn direkt
-        truncated_content = truncate_string(item['content'])
-
-    card_label = ttk.Label(card_frame, text=f"{key}: {truncated_content}", background="#ffffff", foreground="#000000", wraplength=280)  # Wraplänge und Breite des Labels angepasst
-    card_label.pack(side=tk.LEFT, padx=10, pady=10)
     
-    card_menu_button = ttk.Menubutton(card_frame, text="...", direction="above")
-    card_menu = tk.Menu(card_menu_button, tearoff=0)
-    card_menu.add_command(label="Delete", command=lambda k=key: delete_from_clipboard(k))
-    card_menu_button['menu'] = card_menu
-    card_menu_button.pack(side=tk.RIGHT, padx=10, pady=10)
-
-    # Aktualisiere das Label nach dem Kürzen des Inhalts
-    card_label.config(text=f"{key}: {truncated_content}")
-
-
 def copy_to_clipboard(key):
     file_paths = get_file_paths_from_clipboard()
     timestamp = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
@@ -105,9 +126,9 @@ def copy_to_clipboard(key):
     else:
         clipboard_content = pyperclip.paste()
         print("Keine Datei oder Ordner gefunden, speichere als Text.")
-        clipboard_storage[key] = {'type': 'text', 'content': [clipboard_content], 'timestamp': timestamp}
+        clipboard_storage[key] = {'type': 'text', 'content': [clipboard_content], 'timestamp': timestamp, 'source': []}
         update_clipboard_history()
-
+        
 def paste_from_clipboard(key):
     global destination_path
     print(f"paste_from_clipboard aufgerufen mit key: {key}")
@@ -235,7 +256,14 @@ def delete_from_clipboard(key):
     update_clipboard_history()
 
 def update_scrollregion(event=None):
-    history_canvas.configure(scrollregion=history_canvas.bbox("all"))
+    # Anpassen der Scrollregion basierend auf der Höhe des Inhalts
+    history_canvas.update_idletasks()
+    canvas_height = history_canvas.winfo_height()
+    frame_height = history_frame.winfo_reqheight()
+    if frame_height > canvas_height:
+        history_canvas.config(scrollregion="0 0 {} {}".format(history_frame.winfo_width(), frame_height))
+    else:
+        history_canvas.config(scrollregion="")
 
 def on_mousewheel(event):
     history_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
@@ -243,7 +271,7 @@ def on_mousewheel(event):
 root = tk.Tk()
 root.title("Clipboard Manager")
 
-root.geometry("395x292")
+root.geometry("295x392")  # Neue Größe angepasst
 root.resizable(False, False)
 
 root.configure(bg="#f0f0f0")
@@ -251,16 +279,26 @@ root.configure(bg="#f0f0f0")
 main_frame = ttk.Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-history_canvas = tk.Canvas(main_frame)
-history_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+# history_canvas = tk.Canvas(main_frame, yscrollincrement=1)  # yscrollincrement hinzugefügt
+# history_canvas.pack(side=tk.LEFT, fill="both", expand=True)  # fill auf "both" geändert
+
+# scrollbar = ttk.Scrollbar(root, orient="vertical", command=history_canvas.yview)
+# scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+# history_canvas.configure(yscrollcommand=scrollbar.set)
+# history_frame = ttk.Frame(history_canvas)
+# history_frame.pack(fill=tk.BOTH, expand=True)  
+
+# history_canvas.create_window((0, 0), window=history_frame, anchor="nw")
+
+# history_frame.bind("<Configure>", update_scrollregion)
+history_canvas = tk.Canvas(main_frame, yscrollincrement=15)  # Kleinerer yscrollincrement-Wert für schnelleres Scrollen
+history_canvas.pack(side=tk.LEFT, fill="both", expand=True)  
 
 scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=history_canvas.yview)
-scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+scrollbar.pack(side=tk.RIGHT, fill="y")
+
 history_canvas.configure(yscrollcommand=scrollbar.set)
-
 history_frame = ttk.Frame(history_canvas)
-history_frame.pack(fill=tk.BOTH, expand=True)  
-
 history_canvas.create_window((0, 0), window=history_frame, anchor="nw")
 
 history_frame.bind("<Configure>", update_scrollregion)
