@@ -19,27 +19,27 @@ os.chdir(script_dir)
 
 def check_if_clipboard_empty():
     for widget in history_frame.winfo_children():
-        widget.destroy()  
+        widget.destroy()
     if not clipboard_storage:
         show_empty_clipboard_message()
     else:
-        hide_empty_clipboard_message()  
+        hide_empty_clipboard_message()
 
-placeholder_frame = None  
+placeholder_frame = None
 
 def show_empty_clipboard_message():
     global placeholder_frame
     if placeholder_frame is not None:
         placeholder_frame.destroy()
-    
-    placeholder_frame = ttk.Frame(history_frame, padding=10)  
-    placeholder_frame.pack(expand=True, fill=tk.BOTH)  
+
+    placeholder_frame = ttk.Frame(history_frame, padding=10)
+    placeholder_frame.pack(expand=True, fill=tk.BOTH)
 
     empty_message_label = ttk.Label(placeholder_frame, text="Deine Zwischenablage ist leer\n"
                                                             "Lass uns gemeinsam Geschichte schreiben, "
                                                             "indem du mehrere Elemente kopierst.",
                                     background="#ffffff", foreground="#000000", wraplength=300)
-    empty_message_label.pack(expand=True, pady=10)  
+    empty_message_label.pack(expand=True, pady=10)
 
 def hide_empty_clipboard_message():
     global placeholder_frame
@@ -74,10 +74,10 @@ def update_clipboard_history():
         card_frame.config(width=max_width, height=max_height)
 
     update_scrollregion()
-    
+
 def create_clipboard_card(key, item):
     # Karte erstellen
-    card_frame = ttk.Frame(history_frame, width=280, height=100)
+    card_frame = ttk.Frame(history_frame, width=280, height=100, relief="solid", borderwidth=1, style="Custom.TFrame")  # Style hinzugefügt
     card_frame.pack(fill=tk.X, padx=5, pady=10)
 
     # Füge den Schlüssel 'frame' zum Dictionary 'item' hinzu
@@ -92,63 +92,62 @@ def create_clipboard_card(key, item):
 
     # Label für die Karte erstellen
     card_label = ttk.Label(card_frame, text=f"{key}: {truncated_content}", background="#ffffff", foreground="#000000", wraplength=260)
-    card_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    card_label.pack(expand=True, fill=tk.BOTH, padx=10, pady=5)
 
     # Die Scrollregion aktualisieren, um sicherzustellen, dass neue Karten angezeigt werden
     update_scrollregion()
 
     return card_frame, card_label
-    
+
 def truncate_string(content, max_length=255):
     """
     Kürzt einen String auf die maximale Länge, einschließlich der Platzierung von '...'
     am Ende, falls der Text länger als die maximale Länge ist.
     """
-    
+
     return textwrap.shorten(content, width=max_length, placeholder="...")
 
-    
 def copy_to_clipboard(key):
     file_paths = get_file_paths_from_clipboard()
     timestamp = datetime.datetime.now().strftime("%Y.%m.%d %H:%M:%S")
-    
+
     if key not in clipboard_storage:
         clipboard_storage[key] = {'type': 'multiple', 'content': [], 'timestamp': timestamp, 'source': []}
-    
+
     if file_paths:
         for file_path in file_paths:
             print(f"Element gefunden: {file_path}")
             clipboard_storage[key]['content'].insert(0, file_path)  # Neues Element oben einfügen
             clipboard_storage[key]['source'].insert(0, file_path)
-        if os.path.isfile(file_paths[0]) and key.startswith('v'):  
+        if os.path.isfile(file_paths[0]) and key.startswith('v'):
             ask_for_destination_path(clipboard_storage[key])
-        update_clipboard_history()  
+        update_clipboard_history()
     else:
         clipboard_content = pyperclip.paste()
         print("Keine Datei oder Ordner gefunden, speichere als Text.")
         clipboard_storage[key] = {'type': 'text', 'content': [clipboard_content], 'timestamp': timestamp, 'source': []}
         update_clipboard_history()
-        
+
 def paste_from_clipboard(key):
     global destination_path
     print(f"paste_from_clipboard aufgerufen mit key: {key}")
     if key in clipboard_storage:
         items = clipboard_storage[key]
         if items['type'] == 'multiple':
-            if os.path.isfile(items['content'][0]):  
+            if os.path.isfile(items['content'][0]):
                 ask_for_destination_path(items)
             else:
                 pyperclip.copy(items['content'][0])
                 keyboard.send('ctrl+v')
-                update_clipboard_history()  
+                update_clipboard_history()
         else:
             content = items['content'][0]
-            if os.path.isfile(content):  
+            if os.path.isfile(content):
                 ask_for_destination_path(items)
             else:
                 pyperclip.copy(content)
                 keyboard.send('ctrl+v')
-                update_clipboard_history()  
+                update_clipboard_history()
     else:
         print(f"Kein Item gefunden für key: {key}")
 
@@ -157,8 +156,8 @@ def ask_for_destination_path(items):
 
     destination_window = tk.Toplevel()
     destination_window.title("Destination Path")
-    destination_window.transient(root) 
-    destination_window.grab_set()  
+    destination_window.transient(root)
+    destination_window.grab_set()
 
     label = ttk.Label(destination_window, text="Select the destination folder path:")
     label.pack(padx=10, pady=5)
@@ -172,7 +171,7 @@ def ask_for_destination_path(items):
         if path:
             destination_path = path
             path_display.config(text="Selected path: " + path)
-            proceed_button.config(state=tk.NORMAL)  
+            proceed_button.config(state=tk.NORMAL)
 
     browse_button = ttk.Button(destination_window, text="Browse...", command=open_file_dialog)
     browse_button.pack(padx=10, pady=5)
@@ -188,8 +187,8 @@ def ask_for_destination_path(items):
     proceed_button = ttk.Button(destination_window, text="OK", command=proceed_with_selected_path, state=tk.DISABLED)
     proceed_button.pack(padx=10, pady=10)
 
-    destination_window.protocol("WM_DELETE_WINDOW", lambda: None)  
-    root.wait_window(destination_window)  
+    destination_window.protocol("WM_DELETE_WINDOW", lambda: None)
+    root.wait_window(destination_window)
 
 def copy_file_and_hide_indicator(source, destination_folder):
     global destination_window
@@ -208,7 +207,7 @@ def copy_file_and_hide_indicator(source, destination_folder):
             message = f"Datei erfolgreich nach {final_destination} kopiert."
     except Exception as e:
         message = f"Fehler beim Kopieren: {e}"
-    
+
     root.after(0, lambda: update_gui_after_copy(message))
 
 def update_gui_after_copy(message):
@@ -228,7 +227,7 @@ def generate_new_destination(destination_path):
 def show_loading_indicator():
     loading_label = ttk.Label(destination_window, text="Übertragung läuft, bitte warten...")
     loading_label.pack(pady=(10, 0))
-    
+
     loading_progressbar = ttk.Progressbar(destination_window, orient="horizontal", length=200, mode="determinate")
     loading_progressbar.pack(pady=10)
     loading_progressbar['maximum'] = 100
@@ -276,29 +275,21 @@ root.resizable(False, False)
 
 root.configure(bg="#f0f0f0")
 
+# Neuer Stil für den Rahmen der Karten hinzugefügt
+style = ttk.Style()
+style.configure("Custom.TFrame", background="#ffffff")
+
 main_frame = ttk.Frame(root)
 main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-# history_canvas = tk.Canvas(main_frame, yscrollincrement=1)  # yscrollincrement hinzugefügt
-# history_canvas.pack(side=tk.LEFT, fill="both", expand=True)  # fill auf "both" geändert
-
-# scrollbar = ttk.Scrollbar(root, orient="vertical", command=history_canvas.yview)
-# scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-# history_canvas.configure(yscrollcommand=scrollbar.set)
-# history_frame = ttk.Frame(history_canvas)
-# history_frame.pack(fill=tk.BOTH, expand=True)  
-
-# history_canvas.create_window((0, 0), window=history_frame, anchor="nw")
-
-# history_frame.bind("<Configure>", update_scrollregion)
-history_canvas = tk.Canvas(main_frame, yscrollincrement=15)  # Kleinerer yscrollincrement-Wert für schnelleres Scrollen
-history_canvas.pack(side=tk.LEFT, fill="both", expand=True)  
+history_canvas = tk.Canvas(main_frame, yscrollincrement=15, bg="#f0f0f0")  # Hintergrundfarbe hinzugefügt
+history_canvas.pack(side=tk.LEFT, fill="both", expand=True)
 
 scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=history_canvas.yview)
 scrollbar.pack(side=tk.RIGHT, fill="y")
 
 history_canvas.configure(yscrollcommand=scrollbar.set)
-history_frame = ttk.Frame(history_canvas)
+history_frame = ttk.Frame(history_canvas)  # Hintergrundfarbe entfernt
 history_canvas.create_window((0, 0), window=history_frame, anchor="nw")
 
 history_frame.bind("<Configure>", update_scrollregion)
@@ -313,6 +304,6 @@ for key in valid_keys:
     keyboard.add_hotkey(f'ctrl+c+{key}', lambda k=key: copy_to_clipboard(k))
     keyboard.add_hotkey(f'ctrl+shift+{key}', lambda k=key: paste_from_clipboard(k))
     keyboard.add_hotkey(f'ctrl+alt+{key}', lambda k=key: delete_from_clipboard(k))
-    keyboard.add_hotkey(f'ctrl+v+{key}', lambda k=key: paste_from_clipboard(key))  
+    keyboard.add_hotkey(f'ctrl+v+{key}', lambda k=key: paste_from_clipboard(key))
 
 root.mainloop()
