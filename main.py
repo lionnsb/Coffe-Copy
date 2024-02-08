@@ -90,14 +90,19 @@ def create_clipboard_card(key, item):
     else:
         truncated_content = truncate_string(item['content'])
 
-    # Label für die Karte erstellen
-    card_label = ttk.Label(card_frame, text=f"{key}: {truncated_content}", background="#ffffff", foreground="#000000", wraplength=260)
-    card_label.pack(expand=True, fill=tk.BOTH, padx=10, pady=5)
+    # Label für den Schlüssel erstellen (fett gedruckt)
+    key_label = ttk.Label(card_frame, text=key + ":", background="#ffffff", foreground="#000000", anchor="w", justify=tk.LEFT, font=("Helvetica", 10, "bold"))
+    key_label.grid(row=0, column=0, sticky="w")
+
+    # Label für den Inhalt erstellen
+    content_label = ttk.Label(card_frame, text=truncated_content, background="#ffffff", foreground="#000000", wraplength=250, anchor="w", justify=tk.LEFT, font=("Helvetica", 10))
+    content_label.grid(row=0, column=1, sticky="w")
 
     # Die Scrollregion aktualisieren, um sicherzustellen, dass neue Karten angezeigt werden
     update_scrollregion()
 
-    return card_frame, card_label
+    return card_frame, (key_label, content_label)  # Rückgabe des Frame und der Labels als Tupel
+
 
 def truncate_string(content, max_length=255):
     """
