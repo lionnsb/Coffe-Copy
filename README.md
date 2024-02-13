@@ -1,39 +1,39 @@
 # ![Coffee & Copy :coffee:](c&c-banner.png)
 
-[![Lizenz][1]][2]
+[![License][1]][2]
 
-[1]: https://img.shields.io/badge/Lizenz-MIT-brightgreen.svg
+[1]: https://img.shields.io/badge/license-MIT-brightgreen.svg
 [2]: LICENSE
 
 **[Deutsch](README.de.md)** | **[English](README.en.md)** | **[Français](README.fr.md)** | **[Español](README.es.md)**
 
-"Coffee & Copy" ist eine fortschrittliche Zwischenablage-Verwaltungsanwendung für Windows, die darauf abzielt, die Produktivität durch effizienteres Kopieren und Einfügen von Inhalten zu steigern. Mit dieser Anwendung können Benutzer Inhalte nicht nur kopieren und einfügen, sondern auch speichern, organisieren und an verschiedenen Orten wieder verwenden.
+"Coffee & Copy" is an advanced clipboard management application for Windows, aiming to increase productivity by facilitating more efficient copying and pasting of content. With this application, users can not only copy and paste content but also save, organize, and reuse it at various locations.
 
 > [!CAUTION]
-> Dieses Projekt befindet sich noch in den Anfangsphasen der Entwicklung. Nutzung auf eigene Gefahr.
+> This project is still in the early stages of development. Use at your own risk.
 
 > [!NOTE]
-> Wir suchen Mitwirkende, die uns bei diesem Projekt unterstützen, insbesondere bei der Implementierung neuer Funktionen und Dienstleistungen!
+> We are looking for contributors to help us with this project, especially in implementing new features and services!
 
-## Funktionen
+## Features
 
-- **Mehrere Zwischenablage-Einträge:** Speichern Sie verschiedene kopierte Inhalte in einem leicht zugänglichen Speicher.
-- **Anzeigen von Details:** Sehen Sie sich Details zu jedem kopierten Element an, einschließlich Typ, Inhalt, Zeitstempel und Quelle.
-- **Anpassbare Hotkeys:** Definieren Sie eigene Hotkeys für das Kopieren, Einfügen und Löschen von Zwischenablage-Einträgen.
-- **Zielverzeichnisauswahl:** Wählen Sie das Zielverzeichnis für das Einfügen von Dateien direkt aus der Anwendung heraus.
-- **Unterstützung für Dateien und Text:** Erkennt und behandelt sowohl Textinhalte als auch Dateipfade, die aus der Zwischenablage kopiert werden.
-- **Multithreading:** Nutzt Multithreading, um das Kopieren von Dateien effizient und ohne Beeinträchtigung der Benutzererfahrung zu ermöglichen.
-- **Benutzerfreundliche GUI:** Eine intuitive grafische Benutzeroberfläche, die mit dem "ThemedStyle" aus ttkthemes für eine moderne Optik gestaltet ist.
+- **Multiple Clipboard Entries:** Save various copied contents in an easily accessible storage.
+- **View Details:** See details of each copied item, including type, content, timestamp, and source.
+- **Customizable Hotkeys:** Define custom hotkeys for copying, pasting, and deleting clipboard entries.
+- **Destination Directory Selection:** Choose the destination directory for pasting files directly from the application.
+- **Support for Files and Text:** Recognizes and handles both text contents and file paths copied from the clipboard.
+- **Multithreading:** Utilizes multithreading to allow efficient copying of files without impacting user experience.
+- **User-Friendly GUI:** An intuitive graphical user interface designed with the "ThemedStyle" from ttkthemes for a modern look.
 
-## Anwendungsfälle
+## Use Cases
 
-- **Effizientes Datenmanagement:** Ideal für Nutzer, die häufig mit großen Mengen an Informationen arbeiten und diese effizient verwalten müssen.
-- **Produktivitätssteigerung:** Ermöglicht schnelles Wiederfinden und Wiederverwenden von kopierten Inhalten, was Zeit spart und die Produktivität steigert.
-- **Vereinfachte Dateiverwaltung:** Erleichtert das Kopieren und Einfügen von Dateien zwischen verschiedenen Orten durch direkte Auswahl des Zielverzeichnisses.
+- **Efficient Data Management:** Ideal for users who frequently work with large amounts of information and need to manage it efficiently.
+- **Productivity Boost:** Enables quick retrieval and reuse of copied content, saving time and increasing productivity.
+- **Simplified File Management:** Facilitates copying and pasting of files between different locations by directly selecting the destination directory.
 
-## Nutzung
+## Usage
 
 ```text
-- Starten Sie die Anwendung und nutzen Sie die Standard-Hotkeys oder definieren Sie eigene, um Inhalte zu kopieren, einzufügen und zu verwalten.
-- Verwenden Sie das Hauptfenster der Anwendung, um Ihre Zwischenablage-Einträge zu sehen und zu organisieren.
-- Wählen Sie ein Zielverzeichnis für das Einfügen von Dateien durch das Browsen direkt in der Anwendung.
+- Launch the application and use the default hotkeys or define your own to copy, paste, and manage content.
+- Use the application's main window to view and organize your clipboard entries.
+- Select a destination directory for pasting files by browsing directly within the application.
