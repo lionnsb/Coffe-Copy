@@ -1,4 +1,4 @@
-# ![Coffee & Copy :coffee:](docs/logo.png)
+# ![Coffee & Copy :coffee:](c&c-banner.png)
 
 [![Lizenz][1]][2]
 
